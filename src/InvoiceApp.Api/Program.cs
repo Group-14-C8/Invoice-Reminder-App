@@ -13,6 +13,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<TokenService>();
 
+builder.Services.AddScoped<ReminderService>();
+
+if (string.Equals(builder.Configuration["Email:Mode"], "Smtp", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddSingleton<InvoiceApp.Api.Services.IEmailSender, InvoiceApp.Api.Services.SmtpEmailSender>();
+else
+    builder.Services.AddSingleton<InvoiceApp.Api.Services.IEmailSender, InvoiceApp.Api.Services.LogEmailSender>();
+
+builder.Services.AddHostedService<ReminderWorker>();
+
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Jwt:Key is not configured.");
 
