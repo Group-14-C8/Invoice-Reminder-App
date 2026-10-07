@@ -1,5 +1,20 @@
+# =========================================================
+# Node.js / Frontend
+# =========================================================
+
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# Environment files
+.env
+.env.*
+!.env.example
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,23 +22,102 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# =========================================================
+# .NET / Backend
+# =========================================================
 
-# Editor directories and files
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+.vs/
 .vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 !.vscode/extensions.json
-.idea
-.DS_Store
+*.code-workspace
+
+# .NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+appsettings.Development.json
+
+# Visual Studio
+*.user
+*.userosscache
 *.suo
+*.sln.docstates
+*.rsuser
+*.userprefs
+*.sln.iml
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-*.md
-test
-screenshots
+*.vspscc
+*.vssscc
+
+# Coverage / test results
+[Tt]est[Rr]esult*/
+TestResult.xml
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+coverage*.info
+test-results/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+
+# Publish/build files
+*.pubxml
+*.publishproj
+PublishScripts/
+publish/
+*.binlog
+*.pdb
+*.ilk
+*.obj
+*.iobj
+*.pch
+*.pgc
+*.pgd
+*.rsp
+*.tmp
+*.cache
+
+# =========================================================
+# Editor / OS
+# =========================================================
+
+.idea/
+.history/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+*.swp
+
+# =========================================================
+# Project-specific
+# =========================================================
+
+test/
+screenshots/
 .github/copilot-instructions.md
-.vite/
