@@ -12,8 +12,6 @@ export interface AuthContextValue {
   register: (details: {
     email: string;
     password: string;
-    fullName: string;
-    businessName: string;
   }) => Promise<AuthResult>;
   logout: () => void;
 }

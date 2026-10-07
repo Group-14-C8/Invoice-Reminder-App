@@ -47,7 +47,7 @@ const navigation = [
 export function AppShell({
   role = "User",
   onLogout,
-  user = { fullName: "Tola Adeyemi", businessName: "Tola Adeyemi Designs" },
+  user = { fullName: "Account", businessName: "" },
 }: AppShellProps) {
   const { t } = useTranslation();
   const { pathname } = useLocation();
@@ -56,7 +56,7 @@ export function AppShell({
     useState<UserPreferences>(readPreferences);
   const healthQuery = useQuery({
     queryKey: ["health"],
-    queryFn: async () => apiRequest<{ ok: boolean }>(endpoints.health),
+    queryFn: async () => apiRequest<string>(endpoints.health),
     retry: false,
     refetchOnWindowFocus: true,
     staleTime: 30_000,
@@ -201,9 +201,6 @@ export function AppShell({
             items={mobileAccountMenu}
           />
         </header>
-        {import.meta.env.DEV && !env.useMocks && !env.apiBaseUrl && (
-          <ApiWarning />
-        )}
         <main className="shell-main">
           <Outlet />
         </main>
@@ -291,19 +288,5 @@ function supportedTimeZones(): string[] {
     timeZones.supportedValuesOf?.("timeZone") ?? [
       Intl.DateTimeFormat().resolvedOptions().timeZone,
     ]
-  );
-}
-
-function ApiWarning() {
-  const { t } = useTranslation();
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
-  return (
-    <aside className="api-warning" role="status">
-      <span>{t("shell.apiMissing")}</span>
-      <button type="button" onClick={() => setDismissed(true)}>
-        {t("accessibility.dismiss")}
-      </button>
-    </aside>
   );
 }

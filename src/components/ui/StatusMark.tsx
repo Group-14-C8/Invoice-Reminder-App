@@ -9,8 +9,7 @@ export interface StatusMarkProps {
 }
 
 const statusKeys: Record<InvoiceStatus, string> = {
-  Draft: "status.draft",
-  Sent: "status.sent",
+  Unpaid: "status.unpaid",
   Overdue: "status.overdue",
   Paid: "status.paid",
 };
@@ -24,7 +23,7 @@ export function StatusMark({
   const label = t(statusKeys[status]);
   const previousStatus = useRef(status);
   const paidTransition =
-    animated && previousStatus.current === "Sent" && status === "Paid";
+    animated && previousStatus.current === "Unpaid" && status === "Paid";
   previousStatus.current = status;
 
   return (
@@ -49,7 +48,7 @@ export function StatusMark({
         viewBox="0 0 16 16"
       >
         <circle className="status-mark__outline" cx="8" cy="8" r="6.5" />
-        {status === "Sent" && (
+        {status === "Unpaid" && (
           <path
             className="status-mark__fill"
             d="M8 1.5a6.5 6.5 0 0 0 0 13V1.5Z"

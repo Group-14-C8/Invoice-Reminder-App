@@ -15,8 +15,8 @@ export class HttpError extends Error {
 export class ValidationError extends HttpError {
   readonly errors: Record<string, string[]>;
 
-  constructor(errors: Record<string, string[]>) {
-    super(422, "Validation failed");
+  constructor(errors: Record<string, string[]>, status = 400) {
+    super(status, "Validation failed");
     this.errors = errors;
     this.name = "ValidationError";
   }
@@ -72,15 +72,18 @@ export async function apiRequest<T>(
 
     if (response.status === 401) {
       const payload = (await response.json().catch(() => null)) as {
+        message?: unknown;
         detail?: unknown;
         title?: unknown;
       } | null;
       const detail =
-        typeof payload?.detail === "string"
-          ? payload.detail
-          : typeof payload?.title === "string"
-            ? payload.title
-            : "";
+        typeof payload?.message === "string"
+          ? payload.message
+          : typeof payload?.detail === "string"
+            ? payload.detail
+            : typeof payload?.title === "string"
+              ? payload.title
+              : "";
       if (token && input !== endpoints.auth.login) {
         clearSessionToken();
         const next = window.location.pathname + window.location.search;
@@ -104,8 +107,20 @@ export async function apiRequest<T>(
         string,
         unknown
       >;
-      const errors = (payload.errors as Record<string, string[]>) ?? {};
-      throw new ValidationError(errors);
+      const errors = payload.errors;
+      if (errors && typeof errors === "object" && !Array.isArray(errors)) {
+        throw new ValidationError(
+          errors as Record<string, string[]>,
+          response.status,
+        );
+      }
+      const message =
+        typeof payload.message === "string"
+          ? payload.message
+          : typeof payload.detail === "string"
+            ? payload.detail
+            : "The request was invalid.";
+      throw new HttpError(response.status, message);
     }
 
     if (response.status >= 500) {
@@ -117,15 +132,18 @@ export async function apiRequest<T>(
 
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as {
+        message?: unknown;
         detail?: unknown;
         title?: unknown;
       } | null;
       const message =
-        typeof payload?.detail === "string"
-          ? payload.detail
-          : typeof payload?.title === "string"
-            ? payload.title
-            : "";
+        typeof payload?.message === "string"
+          ? payload.message
+          : typeof payload?.detail === "string"
+            ? payload.detail
+            : typeof payload?.title === "string"
+              ? payload.title
+              : "";
       throw new HttpError(response.status, message);
     }
 
@@ -134,7 +152,10 @@ export async function apiRequest<T>(
     }
 
     const text = await response.text();
-    return text ? (JSON.parse(text) as T) : (undefined as T);
+    if (!text) return undefined as T;
+    return response.headers.get("Content-Type")?.includes("json")
+      ? (JSON.parse(text) as T)
+      : (text as T);
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new NetworkError("Request was cancelled.");

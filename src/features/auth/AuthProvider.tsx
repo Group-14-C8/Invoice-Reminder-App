@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { AuthResult, Role } from "../../api/types";
+import type { AuthResponseDto, AuthResult, Role } from "../../api/types";
 import { apiRequest } from "../../api/http";
 import { endpoints } from "../../api/endpoints";
 import { useTranslation } from "react-i18next";
@@ -63,33 +63,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timeout);
   }, [auth, location.pathname, location.search, navigate, t]);
 
-  const acceptAuthResult = (result: AuthResult): void => {
-    if (!result.token) throw new Error(t("auth.invalidResponse"));
-    const claims = decodeJwt(result.token);
-    const role = result.user.role ?? (claims ? roleFromClaims(claims) : null);
+  const acceptAuthResult = (
+    result: AuthResult | AuthResponseDto,
+  ): AuthResult => {
+    const token = result.token;
+    if (!token) throw new Error(t("auth.invalidResponse"));
+
+    const claims = decodeJwt(token);
+    const role = claims ? roleFromClaims(claims) : null;
     const expiresAt = claims ? expiryFromClaims(claims) : null;
     if (!role || !expiresAt) throw new Error(t("auth.invalidResponse"));
 
-    setSessionToken(result.token);
-    setAuth({ user: result.user, role, expiresAt });
+    const normalizedUser =
+      "user" in result
+        ? { ...result.user, role }
+        : {
+            id:
+              (claims ? (claims.sub as string | undefined) : undefined) ??
+              result.email,
+            email: result.email,
+            fullName:
+              (claims ? (claims.fullName as string | undefined) : undefined) ??
+              result.email,
+            businessName:
+              (claims
+                ? (claims.businessName as string | undefined)
+                : undefined) ?? "",
+            role,
+          };
+
+    setSessionToken(token);
+    setAuth({ user: normalizedUser, role, expiresAt });
+    return { token, user: normalizedUser };
   };
 
   const login: AuthContextValue["login"] = async (credentials) => {
-    const result = await apiRequest<AuthResult>(endpoints.auth.login, {
+    const result = await apiRequest<AuthResponseDto>(endpoints.auth.login, {
       method: "POST",
       body: JSON.stringify(credentials),
     });
-    acceptAuthResult(result);
-    return result;
+    return acceptAuthResult(result);
   };
 
   const register: AuthContextValue["register"] = async (details) => {
-    const result = await apiRequest<AuthResult>(endpoints.auth.register, {
+    const result = await apiRequest<AuthResponseDto>(endpoints.auth.register, {
       method: "POST",
       body: JSON.stringify(details),
     });
-    if (result.token) acceptAuthResult(result);
-    return result;
+    return acceptAuthResult(result);
   };
 
   const logout = (): void => {

@@ -1,13 +1,32 @@
-export type Role = 'User' | 'Admin';
-export type InvoiceStatus = 'Draft' | 'Sent' | 'Paid' | 'Overdue';
+export type Role = "User" | "Admin";
+export type InvoiceStatus = "Unpaid" | "Paid" | "Overdue";
+export type InvoiceStatusDto = "Unpaid" | "Paid";
+
+export interface AuthResponseDto {
+  token: string;
+  email: string;
+  role: Role;
+}
 
 export interface AuthResult {
   token: string;
-  user: { id: string; email: string; fullName: string; businessName: string; role: Role };
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    businessName: string;
+    role: Role;
+  };
 }
 
 export interface Client {
   id: string;
+  name: string;
+  email: string;
+}
+
+export interface ClientResponseDto {
+  id: number;
   name: string;
   email: string;
 }
@@ -17,6 +36,43 @@ export interface InvoiceItem {
   description: string;
   quantity: number;
   unitPrice: number;
+  lineTotal?: number;
+}
+
+export interface InvoiceItemResponseDto {
+  id: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface InvoiceResponseDto {
+  id: number;
+  invoiceNumber: string;
+  clientId: number;
+  clientName: string;
+  issueDate: string;
+  dueDate: string;
+  status: InvoiceStatusDto;
+  isOverdue: boolean;
+  daysOverdue: number;
+  paidDate: string | null;
+  currency: string;
+  total: number;
+  items: InvoiceItemResponseDto[];
+}
+
+export interface InvoiceRequestDto {
+  clientId: number;
+  issueDate: string;
+  dueDate: string;
+  currency: string;
+  items: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
 }
 
 export interface Invoice {
@@ -27,12 +83,12 @@ export interface Invoice {
   issueDate: string;
   dueDate: string;
   status: InvoiceStatus;
+  isOverdue: boolean;
+  daysOverdue?: number;
   totalAmount: number;
-  notes?: string;
   paidDate?: string | null;
   currency?: string;
   items: InvoiceItem[];
-  reminders?: { sentAt: string; type: 'BeforeDue' | 'Overdue'; success: boolean }[];
 }
 
 export interface UserSummary {
@@ -40,13 +96,10 @@ export interface UserSummary {
   totalPaid: number;
   totalOverdue: number;
   currency?: string;
-  byCurrency?: { currency: string; totalUnpaid: number; totalPaid: number; totalOverdue: number }[];
-}
-
-export interface AdminSummary {
-  totalOverdue: number;
-  userCount: number;
-  overdueByCurrency?: { currency: string; amount: number }[];
-  invoicesByStatus: Record<InvoiceStatus, number>;
-  topOverdueUsers?: { userId: string; fullName: string; businessName?: string; overdueAmount: number; currency?: string }[];
+  byCurrency?: {
+    currency: string;
+    totalUnpaid: number;
+    totalPaid: number;
+    totalOverdue: number;
+  }[];
 }

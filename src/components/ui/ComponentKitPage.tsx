@@ -31,7 +31,7 @@ import { Textarea } from "./Textarea";
 import { notify } from "./notify";
 import { ToastViewport } from "./Toast";
 
-const statuses: InvoiceStatus[] = ["Draft", "Sent", "Overdue", "Paid"];
+const statuses: InvoiceStatus[] = ["Unpaid", "Overdue", "Paid"];
 
 const isoDate = (offset: number): string => {
   const date = new Date();
@@ -112,7 +112,7 @@ export function ComponentKitPage() {
           </Field>
           <Field id="kit-select" label={t("kit.selectStatus")}>
             <Select
-              defaultValue="Sent"
+              defaultValue="Unpaid"
               options={statuses.map((status) => ({
                 value: status,
                 label: t(`status.${status.toLowerCase()}`),
@@ -123,8 +123,8 @@ export function ComponentKitPage() {
           <Field id="kit-select-disabled" label={t("kit.disabledSelect")}>
             <Select
               disabled
-              value="Draft"
-              options={[{ value: "Draft", label: t("status.draft") }]}
+              value="Paid"
+              options={[{ value: "Paid", label: t("status.paid") }]}
             />
           </Field>
         </div>
@@ -191,8 +191,7 @@ export function ComponentKitPage() {
           onValueChange={setFilter}
           options={[
             { value: "All", label: t("kit.all"), count: 8 },
-            { value: "Draft", label: t("status.draft"), count: 2 },
-            { value: "Sent", label: t("status.sent"), count: 3 },
+            { value: "Unpaid", label: t("status.unpaid"), count: 5 },
             { value: "Overdue", label: t("status.overdue"), count: 1 },
             { value: "Paid", label: t("status.paid"), count: 2 },
           ]}

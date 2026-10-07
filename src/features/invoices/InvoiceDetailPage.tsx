@@ -1,16 +1,14 @@
-import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiRequest } from "../../api/http";
+import { normalizeInvoice } from "../../api/adapters";
 import { endpoints } from "../../api/endpoints";
-import type { Invoice } from "../../api/types";
 import { Button } from "../../components/ui/Button";
 import { Mark } from "../../components/ui/Mark";
 import { RelativeDue } from "../../components/ui/RelativeDue";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusMark } from "../../components/ui/StatusMark";
 import { notify } from "../../components/ui/notify";
-import { effectiveStatus, invoiceTotal, nextReminder } from "../../lib/invoice";
 import { formatMoney } from "../../lib/money";
 
 export function InvoiceDetailPage() {
@@ -26,20 +24,19 @@ export function InvoiceDetailPage() {
   } = useQuery({
     queryKey: ["invoice", id],
     queryFn: async () =>
-      apiRequest<Invoice>(endpoints.invoices.detail(id ?? "")),
+      normalizeInvoice(
+        await apiRequest<unknown>(endpoints.invoices.detail(id ?? "")),
+      ),
     enabled: Boolean(id),
   });
 
-  const reminder = useMemo(
-    () => (invoice ? nextReminder(invoice) : null),
-    [invoice],
-  );
-
   const markPaid = useMutation({
     mutationFn: async () =>
-      apiRequest<Invoice>(endpoints.invoices.markPaid(id ?? ""), {
-        method: "POST",
-      }),
+      normalizeInvoice(
+        await apiRequest<unknown>(endpoints.invoices.markPaid(id ?? ""), {
+          method: "POST",
+        }),
+      ),
     onSuccess: async (updated) => {
       await queryClient.invalidateQueries({ queryKey: ["invoice", id] });
       await queryClient.invalidateQueries({ queryKey: ["invoices"] });
@@ -79,14 +76,12 @@ export function InvoiceDetailPage() {
     );
   }
 
-  const computedStatus = effectiveStatus(invoice);
-
   const currency = invoice.currency ?? "NGN";
   const amountText = (amount: number): string =>
     formatMoney(amount, currency, "en-NG", { compactWhole: true });
   const invoiceDate = (value: string): string =>
     new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" }).format(
-      new Date(`${value}T00:00:00`),
+      new Date(`${value.slice(0, 10)}T00:00:00`),
     );
 
   return (
@@ -95,7 +90,7 @@ export function InvoiceDetailPage() {
         <Link className="invoice-detail__back" to="/invoices">
           Back to invoices
         </Link>
-        <StatusMark status={computedStatus} />
+        <StatusMark status={invoice.status} />
       </header>
       <div className="invoice-detail__layout">
         <article className="invoice-detail__paper">
@@ -112,7 +107,7 @@ export function InvoiceDetailPage() {
               <h1>{invoice.invoiceNumber}</h1>
             </div>
             <strong className="invoice-detail__headline-total">
-              {amountText(invoiceTotal(invoice.items, currency))}
+              {amountText(invoice.totalAmount)}
             </strong>
           </div>
           <div className="invoice-detail__meta">
@@ -148,35 +143,29 @@ export function InvoiceDetailPage() {
                   <td>{item.description}</td>
                   <td>{item.quantity}</td>
                   <td>{amountText(item.unitPrice)}</td>
-                  <td>{amountText(item.quantity * item.unitPrice)}</td>
+                  <td>
+                    {amountText(
+                      item.lineTotal ?? item.quantity * item.unitPrice,
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {invoice.notes && (
-            <div className="invoice-detail__notes">
-              <span className="invoice-detail__label">Notes</span>
-              <p>{invoice.notes}</p>
-            </div>
-          )}
           <div className="invoice-detail__total">
             <span>Total</span>
-            <strong>{amountText(invoiceTotal(invoice.items, currency))}</strong>
+            <strong>{amountText(invoice.totalAmount)}</strong>
           </div>
         </article>
 
         <aside className="invoice-detail__sidebar">
           <section className="invoice-detail__status-block">
             <h2>Payment status</h2>
-            <StatusMark status={computedStatus} />
+            <StatusMark status={invoice.status} />
             <RelativeDue
               dueDate={invoice.dueDate}
               paidDate={invoice.paidDate ?? null}
             />
-          </section>
-          <section className="invoice-detail__reminder">
-            <span className="invoice-detail__label">Reminder</span>
-            <p>{reminder ? reminder.label : "No next reminder"}</p>
           </section>
           {markPaid.isError && (
             <p className="form-error-inline" role="alert">
@@ -189,11 +178,6 @@ export function InvoiceDetailPage() {
             </p>
           )}
           <div className="invoice-detail__actions">
-            {invoice.status === "Draft" && (
-              <Button onClick={() => navigate(`/invoices/${invoice.id}/edit`)}>
-                Edit invoice
-              </Button>
-            )}
             {invoice.status !== "Paid" && (
               <Button
                 variant="secondary"
@@ -203,7 +187,7 @@ export function InvoiceDetailPage() {
                 Mark as paid
               </Button>
             )}
-            {invoice.status === "Draft" && (
+            {invoice.status !== "Paid" && (
               <Button
                 variant="danger"
                 loading={deleteInvoice.isPending}

@@ -7,8 +7,13 @@ const asRecord = (value: unknown): UnknownRecord | undefined =>
     ? (value as UnknownRecord)
     : undefined;
 
-const readField = (record: UnknownRecord | undefined, key: string): unknown =>
-  record?.[key] ?? record?.[key[0]!.toUpperCase() + key.slice(1)];
+const readField = (record: UnknownRecord | undefined, key: string): unknown => {
+  if (!record) return undefined;
+  const direct = record[key];
+  if (direct !== undefined) return direct;
+  const pascalKey = key.charAt(0).toUpperCase() + key.slice(1);
+  return record[pascalKey];
+};
 
 const toNumber = (value: unknown, fallback = 0): number => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -32,6 +37,11 @@ const toString = (value: unknown, fallback = ""): string =>
       ? String(value)
       : fallback;
 
+const toCalendarDate = (value: unknown): string => {
+  const date = toString(value);
+  return date.length >= 10 ? date.slice(0, 10) : date;
+};
+
 const asArray = <T>(value: unknown): T[] => {
   if (Array.isArray(value)) {
     return value as T[];
@@ -52,51 +62,56 @@ const asArray = <T>(value: unknown): T[] => {
 export const normalizeClient = (input: unknown): Client => {
   const record = asRecord(input);
   return {
-    id: toString(readField(record, "id"), "client-id"),
-    name: toString(readField(record, "name"), "Client"),
-    email: toString(readField(record, "email"), "client@example.com"),
+    id: toString(readField(record, "id")),
+    name: toString(readField(record, "name")),
+    email: toString(readField(record, "email")),
   };
 };
 
 export const normalizeInvoiceItem = (input: unknown): InvoiceItem => {
   const record = asRecord(input);
   const id = readField(record, "id");
+  const quantity = readField(record, "quantity");
+  const unitPrice = readField(record, "unitPrice");
+  const lineTotal = readField(record, "lineTotal");
+
   return {
     id: id ? String(id) : undefined,
-    description: toString(readField(record, "description"), "Service"),
-    quantity: Math.max(1, toNumber(readField(record, "quantity"), 1)),
-    unitPrice: Math.max(0, toNumber(readField(record, "unitPrice"), 0)),
+    description: toString(readField(record, "description")),
+    quantity: Math.max(1, toNumber(quantity, 1)),
+    unitPrice: Math.max(0, toNumber(unitPrice)),
+    lineTotal: toNumber(lineTotal),
   };
 };
 
 export const normalizeInvoice = (input: unknown): Invoice => {
   const record = asRecord(input);
-  const clientName = readField(record, "clientName");
-  const notes = readField(record, "notes");
+  const rawStatus = toString(readField(record, "status"), "Unpaid");
+  const isOverdue = Boolean(readField(record, "isOverdue"));
+  const totalAmount = toNumber(
+    readField(record, "totalAmount") ?? readField(record, "total"),
+    0,
+  );
   const currency = readField(record, "currency");
 
   return {
-    id: toString(readField(record, "id"), "inv-0001"),
-    invoiceNumber: toString(readField(record, "invoiceNumber"), "INV-0001"),
+    id: toString(readField(record, "id")),
+    invoiceNumber: toString(readField(record, "invoiceNumber")),
     clientId: toString(readField(record, "clientId"), ""),
-    clientName: clientName ? toString(clientName, "") : undefined,
-    issueDate: toString(
-      readField(record, "issueDate"),
-      new Date().toISOString().slice(0, 10),
-    ),
-    dueDate: toString(
-      readField(record, "dueDate"),
-      new Date().toISOString().slice(0, 10),
-    ),
-    status: (readField(record, "status") as Invoice["status"]) ?? "Draft",
-    totalAmount: toNumber(readField(record, "totalAmount"), 0),
-    notes: notes ? toString(notes, "") : undefined,
-    paidDate: readField(record, "paidDate") as string | null | undefined,
+    clientName: toString(readField(record, "clientName"), "") || undefined,
+    issueDate: toCalendarDate(readField(record, "issueDate")),
+    dueDate: toCalendarDate(readField(record, "dueDate")),
+    status: rawStatus === "Paid" ? "Paid" : isOverdue ? "Overdue" : "Unpaid",
+    isOverdue,
+    daysOverdue: toNumber(readField(record, "daysOverdue"), 0),
+    totalAmount,
+    paidDate: readField(record, "paidDate")
+      ? toCalendarDate(readField(record, "paidDate"))
+      : (readField(record, "paidDate") as null | undefined),
     currency: currency ? toString(currency, "NGN") : "NGN",
     items: asArray<unknown>(readField(record, "items")).map(
       normalizeInvoiceItem,
     ),
-    reminders: readField(record, "reminders") as Invoice["reminders"],
   };
 };
 

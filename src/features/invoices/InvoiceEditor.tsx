@@ -4,8 +4,9 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../../api/http";
+import { normalizeClients, normalizeInvoice } from "../../api/adapters";
 import { endpoints } from "../../api/endpoints";
-import type { Client, Invoice } from "../../api/types";
+import type { Invoice, InvoiceRequestDto } from "../../api/types";
 import { Button } from "../../components/ui/Button";
 import { DateField } from "../../components/ui/DateField";
 import { Field } from "../../components/ui/Field";
@@ -19,35 +20,16 @@ import { invoiceTotal } from "../../lib/invoice";
 import { formatMoney } from "../../lib/money";
 
 interface InvoiceEditorProps {
-  invoiceId?: string;
-  mode?: "create" | "edit";
   onSaved?: (invoice: Invoice) => void;
   onCancel?: () => void;
 }
 
-const nextInvoiceNumber = (invoices: Invoice[]): string => {
-  const max = invoices.reduce((highest, invoice) => {
-    const match = /\d+/.exec(invoice.invoiceNumber ?? "INV-0000");
-    if (!match) return highest;
-    return Math.max(highest, Number(match[0]));
-  }, 0);
-  return `INV-${String(max + 1).padStart(4, "0")}`;
-};
-
-export function InvoiceEditor({
-  invoiceId,
-  mode = "create",
-  onSaved,
-  onCancel,
-}: InvoiceEditorProps) {
+export function InvoiceEditor({ onSaved, onCancel }: InvoiceEditorProps) {
   const queryClient = useQueryClient();
   const { data: clients = [] } = useQuery({
     queryKey: ["clients"],
-    queryFn: async () => apiRequest<Client[]>(endpoints.clients.list),
-  });
-  const { data: invoices = [] } = useQuery({
-    queryKey: ["invoices"],
-    queryFn: async () => apiRequest<Invoice[]>(endpoints.invoices.list),
+    queryFn: async () =>
+      normalizeClients(await apiRequest<unknown>(endpoints.clients.list)),
   });
 
   const defaultValues = useMemo<InvoiceFormValues>(() => {
@@ -55,14 +37,12 @@ export function InvoiceEditor({
     const due = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
     return {
       clientId: clients[0]?.id ?? "",
-      invoiceNumber: nextInvoiceNumber(invoices),
       issueDate: issue,
       dueDate: due,
-      notes: "",
       currency: "NGN",
       items: [{ description: "", quantity: 1, unitPrice: 0 }],
     };
-  }, [clients, invoices]);
+  }, [clients]);
 
   const {
     register,
@@ -100,29 +80,7 @@ export function InvoiceEditor({
     }
   }, [blocker]);
 
-  useEffect(() => {
-    if (invoiceId) {
-      const current = invoices.find((invoice) => invoice.id === invoiceId);
-      if (current) {
-        reset({
-          clientId: current.clientId,
-          invoiceNumber: current.invoiceNumber,
-          issueDate: current.issueDate,
-          dueDate: current.dueDate,
-          notes: current.notes ?? "",
-          currency: current.currency ?? "NGN",
-          items: current.items.map((item) => ({
-            id: item.id,
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-          })),
-        });
-      }
-    } else {
-      reset(defaultValues);
-    }
-  }, [defaultValues, invoiceId, invoices, reset]);
+  useEffect(() => reset(defaultValues), [defaultValues, reset]);
 
   const total = useMemo(
     () => invoiceTotal(values.items ?? [], values.currency),
@@ -137,21 +95,25 @@ export function InvoiceEditor({
 
   const onSubmit = handleSubmit(async (payload) => {
     try {
-      const invoice = invoiceId
-        ? await apiRequest<Invoice>(endpoints.invoices.update(invoiceId), {
-            method: "PUT",
-            body: JSON.stringify({ ...payload, totalAmount: total }),
-          })
-        : await apiRequest<Invoice>(endpoints.invoices.create, {
-            method: "POST",
-            body: JSON.stringify({
-              ...payload,
-              totalAmount: total,
-              status: "Draft",
-            }),
-          });
+      const request: InvoiceRequestDto = {
+        clientId: Number(payload.clientId),
+        issueDate: `${payload.issueDate}T00:00:00`,
+        dueDate: `${payload.dueDate}T00:00:00`,
+        currency: payload.currency.toUpperCase(),
+        items: payload.items.map(({ description, quantity, unitPrice }) => ({
+          description,
+          quantity,
+          unitPrice,
+        })),
+      };
+      const invoice = normalizeInvoice(
+        await apiRequest<unknown>(endpoints.invoices.create, {
+          method: "POST",
+          body: JSON.stringify(request),
+        }),
+      );
       await queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      notify.success(invoiceId ? "Invoice updated" : "Invoice saved");
+      notify.success("Invoice created");
       onSaved?.(invoice);
     } catch (error) {
       notify.error(
@@ -164,7 +126,7 @@ export function InvoiceEditor({
     <section className="invoice-editor">
       <div className="invoice-editor__form">
         <div className="invoice-editor__header">
-          <h1>{mode === "create" ? "New invoice" : "Edit invoice"}</h1>
+          <h1>New invoice</h1>
           {onCancel && (
             <Button variant="secondary" onClick={onCancel}>
               Back
@@ -189,13 +151,6 @@ export function InvoiceEditor({
                 label: client.name,
               }))}
             />
-          </Field>
-          <Field
-            id="invoice-number"
-            label="Invoice no."
-            error={errors.invoiceNumber?.message}
-          >
-            <Input {...register("invoiceNumber")} />
           </Field>
           <Field
             id="invoice-issue-date"
@@ -327,21 +282,19 @@ export function InvoiceEditor({
           })}
         </div>
 
-        <Field id="invoice-notes" label="Notes" error={errors.notes?.message}>
-          <Input {...register("notes")} />
-        </Field>
-
         <div className="invoice-editor__footer">
           <div className="invoice-total-box">
             <span>Total</span>
             <strong>{formatCurrency(total)}</strong>
           </div>
           <div className="invoice-actions">
-            <Button variant="secondary" type="button" onClick={onCancel}>
-              Save draft
-            </Button>
+            {onCancel && (
+              <Button variant="secondary" type="button" onClick={onCancel}>
+                Cancel
+              </Button>
+            )}
             <Button type="button" onClick={() => void onSubmit()}>
-              Save and send
+              Save invoice
             </Button>
           </div>
         </div>
@@ -356,7 +309,7 @@ export function InvoiceEditor({
         </div>
         <div className="invoice-paper-preview__number">
           <span>Invoice</span>
-          <strong>{values.invoiceNumber || "INV-0000"}</strong>
+          <strong>Assigned on save</strong>
         </div>
         <div className="invoice-paper-preview__meta">
           <div>
@@ -394,12 +347,6 @@ export function InvoiceEditor({
           <span>Total</span>
           <strong>{formatCurrency(total)}</strong>
         </div>
-        {values.notes && (
-          <div className="invoice-paper-preview__notes">
-            <span>Note</span>
-            <p>{values.notes}</p>
-          </div>
-        )}
       </aside>
     </section>
   );

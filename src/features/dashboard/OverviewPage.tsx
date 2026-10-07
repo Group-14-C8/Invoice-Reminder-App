@@ -2,8 +2,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { apiRequest } from "../../api/http";
+import { normalizeInvoices } from "../../api/adapters";
 import { endpoints } from "../../api/endpoints";
-import type { Invoice, UserSummary } from "../../api/types";
+import type { UserSummary } from "../../api/types";
 import { Amount } from "../../components/ui/Amount";
 import { RelativeDue } from "../../components/ui/RelativeDue";
 import { Segmented } from "../../components/ui/Segmented";
@@ -25,32 +26,79 @@ const tickValues = [-30, -14, -7, 0, 7, 14, 30];
 
 export function OverviewPage() {
   const [currency, setCurrency] = useState("NGN");
-  const { data: summary } = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: async () => apiRequest<UserSummary>(endpoints.dashboard),
-  });
   const { data: invoices = [] } = useQuery({
     queryKey: ["invoices"],
-    queryFn: async () => apiRequest<Invoice[]>(endpoints.invoices.list),
+    queryFn: async () =>
+      normalizeInvoices(await apiRequest<unknown>(endpoints.invoices.list)),
   });
+
+  const summary = useMemo<UserSummary>(() => {
+    const byCurrency: Record<
+      string,
+      {
+        currency: string;
+        totalUnpaid: number;
+        totalPaid: number;
+        totalOverdue: number;
+      }
+    > = {};
+
+    const totals = invoices.reduce(
+      (accumulator, invoice) => {
+        const currencyCode = invoice.currency ?? "NGN";
+        const amount = invoice.totalAmount ?? 0;
+        accumulator.totalPaid += invoice.status === "Paid" ? amount : 0;
+        accumulator.totalOverdue += invoice.status === "Overdue" ? amount : 0;
+        accumulator.totalUnpaid += invoice.status === "Unpaid" ? amount : 0;
+        if (!byCurrency[currencyCode]) {
+          byCurrency[currencyCode] = {
+            currency: currencyCode,
+            totalUnpaid: 0,
+            totalPaid: 0,
+            totalOverdue: 0,
+          };
+        }
+        const bucket = byCurrency[currencyCode];
+        if (bucket) {
+          bucket.totalPaid += invoice.status === "Paid" ? amount : 0;
+          bucket.totalOverdue += invoice.status === "Overdue" ? amount : 0;
+          bucket.totalUnpaid += invoice.status === "Unpaid" ? amount : 0;
+        }
+        return accumulator;
+      },
+      {
+        totalUnpaid: 0,
+        totalPaid: 0,
+        totalOverdue: 0,
+      },
+    );
+
+    return {
+      totalUnpaid: totals.totalUnpaid,
+      totalPaid: totals.totalPaid,
+      totalOverdue: totals.totalOverdue,
+      currency: "NGN",
+      byCurrency: Object.values(byCurrency),
+    };
+  }, [invoices]);
 
   const currencies = useMemo(() => {
     const values = new Set<string>();
-    for (const entry of summary?.byCurrency ?? []) {
+    for (const entry of summary.byCurrency ?? []) {
       values.add(entry.currency);
     }
     for (const invoice of invoices) {
       if (invoice.currency) values.add(invoice.currency);
     }
     return [...values].sort((left, right) => left.localeCompare(right));
-  }, [invoices, summary?.byCurrency]);
+  }, [invoices, summary.byCurrency]);
 
   const activeCurrency = currencies.includes(currency)
     ? currency
-    : (summary?.currency ?? currencies[0] ?? "NGN");
+    : (summary.currency ?? currencies[0] ?? "NGN");
 
   const ledger = useMemo(() => {
-    const bucket = summary?.byCurrency?.find(
+    const bucket = summary.byCurrency?.find(
       (entry) => entry.currency === activeCurrency,
     );
     if (bucket) {
@@ -62,18 +110,16 @@ export function OverviewPage() {
     }
 
     return {
-      totalUnpaid: summary?.totalUnpaid ?? 0,
-      totalOverdue: summary?.totalOverdue ?? 0,
-      totalPaid: summary?.totalPaid ?? 0,
+      totalUnpaid: summary.totalUnpaid ?? 0,
+      totalOverdue: summary.totalOverdue ?? 0,
+      totalPaid: summary.totalPaid ?? 0,
     };
   }, [activeCurrency, summary]);
 
   const horizonInvoices = useMemo(() => {
     return invoices
       .filter((invoice) => invoice.currency === activeCurrency)
-      .filter(
-        (invoice) => invoice.status !== "Draft" && invoice.status !== "Paid",
-      )
+      .filter((invoice) => invoice.status !== "Paid")
       .map((invoice) => ({
         ...invoice,
         days: Math.round(toCalendarDay(invoice.dueDate) - startOfToday()),

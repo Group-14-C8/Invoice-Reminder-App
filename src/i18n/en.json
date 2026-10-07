@@ -20,8 +20,7 @@
     "close": "Close"
   },
   "status": {
-    "draft": "Draft",
-    "sent": "Sent",
+    "unpaid": "Unpaid",
     "overdue": "Overdue",
     "paid": "Paid"
   },
@@ -91,7 +90,6 @@
   },
   "shell": {
     "primaryNavigation": "Primary navigation",
-    "apiMissing": "No API link set. Add it to VITE_API_BASE_URL in .env.local.",
     "healthUnavailable": "Can't reach the server."
   },
   "auth": {
@@ -101,9 +99,6 @@
     "registerSubline": "Invoice clients and let TaskFlow do the chasing.",
     "email": "Email",
     "password": "Password",
-    "fullName": "Full name",
-    "businessName": "Business name",
-    "businessHint": "Shown on your invoices",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "loginButton": "Log in",
@@ -112,11 +107,10 @@
     "createAccountLink": "Create an account",
     "alreadyRegistered": "Already registered?",
     "loginLink": "Log in",
+    "emailRequired": "Enter your email.",
     "invalidEmail": "Enter a valid email address.",
     "passwordRequired": "Enter your password.",
     "passwordMin": "Use at least 8 characters.",
-    "fullNameRequired": "Enter your full name.",
-    "businessNameRequired": "Enter your business name.",
     "passwordStrengthHint": "Add a number or symbol.",
     "passwordStrengthReady": "Your password includes a number or symbol.",
     "formErrorSummary": "Check the highlighted fields and try again.",
@@ -124,10 +118,6 @@
     "sessionEnded": "Your session ended. Log in to continue.",
     "invalidResponse": "The server returned an incomplete sign-in response.",
     "registerContinue": "Your account is ready. Log in to continue.",
-    "statusSlipNumber": "INV-0042",
-    "statusSlipBilledTo": "Billed to",
-    "statusSlipBusiness": "Harbour & Pine Studio",
-    "statusSlipAmount": "Invoice total",
     "networkError": "Can't reach the server. Check your connection and retry.",
     "genericError": "Sign-in could not be completed. Try again."
   },

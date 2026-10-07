@@ -16,12 +16,8 @@ const queryClient = new QueryClient({
   },
 });
 
-const startApp = async (): Promise<void> => {
+const startApp = (): void => {
   document.title = env.appName;
-  if (import.meta.env.DEV && env.useMocks) {
-    const { worker } = await import("./mocks/browser");
-    await worker.start({ onUnhandledRequest: "bypass" });
-  }
 
   createRoot(document.getElementById("root")!).render(
     <StrictMode>

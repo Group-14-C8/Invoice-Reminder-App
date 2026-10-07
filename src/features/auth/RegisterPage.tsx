@@ -81,21 +81,6 @@ export function RegisterPage() {
           </div>
         )}
         <Field
-          id="register-full-name"
-          label={t("auth.fullName")}
-          error={errors.fullName?.message}
-        >
-          <Input {...register("fullName")} autoComplete="name" />
-        </Field>
-        <Field
-          id="register-business-name"
-          label={t("auth.businessName")}
-          hint={t("auth.businessHint")}
-          error={errors.businessName?.message}
-        >
-          <Input {...register("businessName")} autoComplete="organization" />
-        </Field>
-        <Field
           id="register-email"
           label={t("auth.email")}
           error={errors.email?.message}
@@ -169,8 +154,6 @@ function applyRegisterErrors(
   fallback: string,
 ): void {
   const fields: Record<string, keyof RegisterFields> = {
-    fullname: "fullName",
-    businessname: "businessName",
     email: "email",
     password: "password",
   };

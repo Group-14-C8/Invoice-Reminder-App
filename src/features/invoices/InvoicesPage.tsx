@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CaretDown, DotsThree } from "@phosphor-icons/react";
 import { apiRequest } from "../../api/http";
+import { normalizeInvoice, normalizeInvoices } from "../../api/adapters";
 import { endpoints } from "../../api/endpoints";
-import type { Invoice, InvoiceStatus } from "../../api/types";
 import { Amount } from "../../components/ui/Amount";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Menu } from "../../components/ui/Menu";
@@ -13,13 +13,9 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusMark } from "../../components/ui/StatusMark";
 import { notify } from "../../components/ui/notify";
 
-const statusOptions: Array<"All" | InvoiceStatus> = [
-  "All",
-  "Draft",
-  "Sent",
-  "Overdue",
-  "Paid",
-];
+type InvoiceFilter = "All" | "Unpaid" | "Overdue" | "Paid";
+
+const statusOptions: InvoiceFilter[] = ["All", "Unpaid", "Overdue", "Paid"];
 
 const sortLabels: Record<"dueDate" | "amount" | "issueDate", string> = {
   dueDate: "Due date",
@@ -29,7 +25,7 @@ const sortLabels: Record<"dueDate" | "amount" | "issueDate", string> = {
 
 export function InvoicesPage() {
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<"All" | InvoiceStatus>("All");
+  const [status, setStatus] = useState<InvoiceFilter>("All");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"dueDate" | "amount" | "issueDate">(
     "dueDate",
@@ -37,14 +33,14 @@ export function InvoicesPage() {
 
   const query = useQuery({
     queryKey: ["invoices"],
-    queryFn: async () => apiRequest<Invoice[]>(endpoints.invoices.list),
+    queryFn: async () =>
+      normalizeInvoices(await apiRequest<unknown>(endpoints.invoices.list)),
   });
 
   const counts = useMemo(() => {
     const next = {
       All: query.data?.length ?? 0,
-      Draft: 0,
-      Sent: 0,
+      Unpaid: 0,
       Overdue: 0,
       Paid: 0,
     };
@@ -75,7 +71,11 @@ export function InvoicesPage() {
 
   const markPaid = useMutation({
     mutationFn: async (id: string) =>
-      apiRequest<Invoice>(endpoints.invoices.markPaid(id), { method: "POST" }),
+      normalizeInvoice(
+        await apiRequest<unknown>(endpoints.invoices.markPaid(id), {
+          method: "POST",
+        }),
+      ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["invoices"] });
       notify.success("Marked as paid");
@@ -88,17 +88,6 @@ export function InvoicesPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["invoices"] });
       notify.success("Invoice deleted");
-    },
-  });
-
-  const sendInvoice = useMutation({
-    mutationFn: async (id: string) =>
-      apiRequest<{ email?: string }>(endpoints.invoices.send(id), {
-        method: "POST",
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      notify.success("Invoice sent");
     },
   });
 
@@ -233,22 +222,8 @@ export function InvoicesPage() {
                           window.location.assign(`/invoices/${invoice.id}`);
                         },
                       },
-                      ...(invoice.status === "Draft"
+                      ...(invoice.status !== "Paid"
                         ? [
-                            {
-                              label: "Edit",
-                              onSelect: () => {
-                                window.location.assign(
-                                  `/invoices/${invoice.id}/edit`,
-                                );
-                              },
-                            },
-                            {
-                              label: "Send",
-                              onSelect: () => {
-                                void sendInvoice.mutateAsync(invoice.id);
-                              },
-                            },
                             {
                               label: "Delete",
                               destructive: true,
@@ -258,8 +233,7 @@ export function InvoicesPage() {
                             },
                           ]
                         : []),
-                      ...(invoice.status !== "Paid" &&
-                      invoice.status !== "Draft"
+                      ...(invoice.status !== "Paid"
                         ? [
                             {
                               label: "Mark as paid",

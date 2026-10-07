@@ -83,14 +83,6 @@ export const router = createBrowserRouter([
                     }),
                   },
                   {
-                    path: "invoices/:id/edit",
-                    lazy: async () => ({
-                      Component: (
-                        await import("./features/invoices/InvoiceEditPage")
-                      ).InvoiceEditPage,
-                    }),
-                  },
-                  {
                     path: "clients",
                     lazy: async () => ({
                       Component: (
@@ -125,13 +117,17 @@ export const router = createBrowserRouter([
         path: "*",
         element: <NotFoundPage />,
       },
-      {
-        path: "_kit",
-        lazy: async () => ({
-          Component: (await import("./components/ui/ComponentKitPage"))
-            .ComponentKitPage,
-        }),
-      },
+      ...(import.meta.env.DEV
+        ? [
+            {
+              path: "_kit",
+              lazy: async () => ({
+                Component: (await import("./components/ui/ComponentKitPage"))
+                  .ComponentKitPage,
+              }),
+            },
+          ]
+        : []),
     ],
   },
 ]);

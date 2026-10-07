@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest } from "../../api/http";
+import { normalizeClient, normalizeClients } from "../../api/adapters";
 import { endpoints } from "../../api/endpoints";
 import type { Client } from "../../api/types";
 import { Button } from "../../components/ui/Button";
@@ -29,15 +30,18 @@ export function ClientsPage() {
     refetch,
   } = useQuery({
     queryKey: listKey,
-    queryFn: async () => apiRequest<Client[]>(endpoints.clients.list),
+    queryFn: async () =>
+      normalizeClients(await apiRequest<unknown>(endpoints.clients.list)),
   });
 
   const createMutation = useMutation({
     mutationFn: async (values: ClientFormValues) =>
-      apiRequest<Client>(endpoints.clients.create, {
-        method: "POST",
-        body: JSON.stringify(values),
-      }),
+      normalizeClient(
+        await apiRequest<unknown>(endpoints.clients.create, {
+          method: "POST",
+          body: JSON.stringify(values),
+        }),
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: listKey });
       setOpen(false);
@@ -53,10 +57,12 @@ export function ClientsPage() {
       id: string;
       values: ClientFormValues;
     }) =>
-      apiRequest<Client>(endpoints.clients.update(id), {
-        method: "PUT",
-        body: JSON.stringify(values),
-      }),
+      normalizeClient(
+        await apiRequest<unknown>(endpoints.clients.update(id), {
+          method: "PUT",
+          body: JSON.stringify(values),
+        }),
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: listKey });
       setOpen(false);
@@ -150,7 +156,6 @@ export function ClientsPage() {
             <tr>
               <th>Name</th>
               <th>Email</th>
-              <th>Open invoices</th>
               <th className="data-table__actions">Actions</th>
             </tr>
           </thead>
@@ -159,7 +164,6 @@ export function ClientsPage() {
               <tr key={client.id}>
                 <td>{client.name}</td>
                 <td>{client.email}</td>
-                <td className="data-table__total">0</td>
                 <td className="data-table__actions">
                   <div className="toolbar__sort">
                     <Button

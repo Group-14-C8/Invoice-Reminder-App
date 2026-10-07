@@ -1,28 +1,31 @@
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vitest/config";
+import { loadEnv } from "vite";
 
-const localApiProxy = "http://localhost:5000";
+export default defineConfig(({ mode }) => {
+  const { VITE_DEV_PROXY_TARGET: proxyTarget } = loadEnv(
+    mode,
+    process.cwd(),
+    "",
+  );
 
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  base: "/",
-  server: {
-    proxy: {
-      "/api": {
-        target: localApiProxy,
-        changeOrigin: true,
-      },
-      "/health": {
-        target: localApiProxy,
-        changeOrigin: true,
-      },
+  return {
+    plugins: [react(), tailwindcss()],
+    base: "/",
+    server: {
+      proxy: proxyTarget
+        ? {
+            "/api": { target: proxyTarget, changeOrigin: true },
+            "/health": { target: proxyTarget, changeOrigin: true },
+          }
+        : undefined,
     },
-  },
-  test: {
-    environment: "jsdom",
-    globals: true,
-    setupFiles: "./src/test/setup.ts",
-    css: true,
-  },
+    test: {
+      environment: "jsdom",
+      globals: true,
+      setupFiles: "./src/test/setup.ts",
+      css: true,
+    },
+  };
 });

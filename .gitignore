@@ -6,12 +6,37 @@ node_modules/
 dist/
 dist-ssr/
 .vite/
+.vercel/
+.netlify/
+.turbo/
+.parcel-cache/
+.sass-cache/
+.eslintcache
+coverage/
+.nyc_output/
+playwright-report/
+blob-report/
+*.tsbuildinfo
 *.local
 
 # Environment files
 .env
 .env.*
 !.env.example
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+
+# Local deployment / secrets
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*.sqlite
+*.sqlite3
+*.db
 
 # Logs
 logs/
@@ -118,6 +143,8 @@ desktop.ini
 # Project-specific
 # =========================================================
 
-test/
 screenshots/
 .github/copilot-instructions.md
+project.md
+fix-ui-prompt.md
+connect-api-prompt.md
