@@ -147,4 +147,6 @@ screenshots/
 .github/copilot-instructions.md
 project.md
 fix-ui-prompt.md
-connect-api-prompt.md
+connect-api-prompt.md*.db
+*.db-shm
+*.db-wal
