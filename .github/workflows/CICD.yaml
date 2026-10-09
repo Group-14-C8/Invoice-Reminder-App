@@ -38,9 +38,9 @@ jobs:
           port: 22
           script: |
             docker pull ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:latest
-            docker stop invoice-reminder-app || true
-            docker rm invoice-reminder-app || true
-            docker run -d --name invoice-reminder-app --restart always -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:latest
+            docker stop invoice-reminder || true
+            docker rm invoice-reminder || true
+            docker run -d --name invoice-reminder --restart always -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:latest
             docker image prune -f
 
       # ---------- Deploy to Azure Web App ----------
@@ -49,6 +49,6 @@ jobs:
         if: true
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'invoice-reminder-app'
+          app-name: 'invoice-reminder'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           images: '${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:${{ github.sha }}'
