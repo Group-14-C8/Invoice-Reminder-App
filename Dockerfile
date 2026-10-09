@@ -2,11 +2,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy csproj files first (better layer caching)
+# Copy only the API csproj first (better layer caching)
 COPY src/InvoiceApp.Api/InvoiceApp.Api.csproj src/InvoiceApp.Api/
-COPY tests/InvoiceApp.Api.Tests/InvoiceApp.Api.Tests.csproj tests/InvoiceApp.Api.Tests/
-
-# Restore
 RUN dotnet restore src/InvoiceApp.Api/InvoiceApp.Api.csproj
 
 # Copy the rest of the source
