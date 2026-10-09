@@ -22,7 +22,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/minitron:latest
+          tags: ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:latest
 
       - name: SSH to Ubuntu Server and Deploy
         uses: appleboy/ssh-action@v1.0.3
@@ -32,8 +32,8 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: 22
           script: |
-            docker pull ${{ secrets.DOCKER_USERNAME }}/minitron:latest
-            docker stop minitron || true
-            docker rm minitron || true
-            docker run -d --name minitron --restart always -p 8501:8501 ${{ secrets.DOCKER_USERNAME }}/minitron:latest
+            docker pull ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:latest
+            docker stop invoice-reminder-app || true
+            docker rm invoice-reminder-app || true
+            docker run -d --name invoice-reminder-app --restart always -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:latest
             docker image prune -f
