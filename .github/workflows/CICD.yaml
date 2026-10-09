@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build and Deploy Invoice Reminder App
 
 on:
   push:
@@ -22,9 +22,14 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:latest
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:latest
+            ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:${{ github.sha }}
 
-      - name: SSH to Ubuntu Server and Deploy
+      # ---------- Deploy to your Ubuntu server via SSH ----------
+      # Toggle this on by changing "if: false" to "if: true"
+      - name: Deploy to Ubuntu Server (SSH)
+        if: false
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -37,3 +42,13 @@ jobs:
             docker rm invoice-reminder-app || true
             docker run -d --name invoice-reminder-app --restart always -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:latest
             docker image prune -f
+
+      # ---------- Deploy to Azure Web App ----------
+      # Toggle this on by changing "if: false" to "if: true"
+      - name: Deploy to Azure Web App
+        if: true
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'invoice-reminder-app'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          images: '${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:${{ github.sha }}'
