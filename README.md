@@ -6,6 +6,63 @@ overdue totals.
 
 ## Overview
 ## Architecture
+
+┌──────────────────────────────────────────────────────────────┐
+│                         DEVELOPER                             │
+│                                                               │
+│   Writes code → git commit → git push (deployment-branch)     │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     GITHUB REPOSITORY                         │
+│                                                               │
+│   • Source code (React + ASP.NET Core + SQLite)               │
+│   • Dockerfile                                                │
+│   • .github/workflows/CICD.yaml                               │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ triggers on push
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│                   GITHUB ACTIONS (CI/CD)                      │
+│                                                               │
+│   1. Checkout code                                            │
+│   2. Log in to Docker Hub                                     │
+│   3. Build Docker image (multi-stage)                         │
+│   4. Push image to Docker Hub (latest + SHA tags)             │
+│   5. Trigger Azure App Service to restart with new image      │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│                       DOCKER HUB                              │
+│                                                               │
+│   Image: mazakar/invoice-reminder-app:latest                  │
+│   Image: mazakar/invoice-reminder-app:<commit-sha>            │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ Azure pulls image
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│              AZURE APP SERVICE (Linux, F1 tier)               │
+│                                                               │
+│   ┌────────────────────────────────────────────────────┐      │
+│   │           Docker Container (port 8080)             │      │
+│   │                                                    │      │
+│   │   ┌──────────────────┐   ┌──────────────────┐      │      │
+│   │   │  React Frontend  │   │  ASP.NET Core    │      │      │
+│   │   │  (in wwwroot)    │   │  Web API         │      │      │
+│   │   └──────────────────┘   └────────┬─────────┘      │      │
+│   │                                    │                │      │
+│   │                                    ▼                │      │
+│   │                          ┌──────────────────┐       │      │
+│   │                          │  SQLite Database │       │      │
+│   │                          │  (/app/data)     │       │      │
+│   │                          └──────────────────┘       │      │
+│   └────────────────────────────────────────────────────┘      │
+│                                                               │
+│   Public URL: https://invoice-reminder.azurewebsites.net      │
+└──────────────────────────────────────────────────────────────┘
+
 ## Tech stack
 ## Run locally
 ## Environment variables
