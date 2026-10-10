@@ -31,7 +31,7 @@ The SHA tag is used for the Azure deployment to force Azure to pull a fresh imag
 
 ## Deployment (Azure App Service + staging slot)
 
-The application is deployed to Azure App Service using the Docker Container publish method. Azure pulls the image from Docker Hub and runs it on a managed Linux host, exposing it via https://invoice-reminder.azurewebsites.net with automatically provisioned HTTPS. Deployment is authenticated via a Publish Profile (XML credentials) stored as a GitHub Secret.
+The application is deployed to Azure App Service using the Docker Container publish method. Azure pulls the image from Docker Hub and runs it on a managed Linux host, exposing it via  https://invoice-reminder-akbnezbxdvh4axg6.australiaeast-01.azurewebsites.net/login with automatically provisioned HTTPS. Deployment is authenticated via a Publish Profile (XML credentials) stored as a GitHub Secret.
 
 The WEBSITES_PORT=8080 application setting is configured in Azure to match the container's listening port.
 
