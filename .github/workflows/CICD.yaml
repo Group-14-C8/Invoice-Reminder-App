@@ -29,12 +29,12 @@ jobs:
       # ---------- Deploy to your Ubuntu server via SSH ----------
       # Toggle this on by changing "if: false" to "if: true"
       - name: Deploy to Ubuntu Server (SSH)
-        if: false
+        if: true
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           script: |
             docker pull ${{ secrets.DOCKER_USERNAME }}/invoice-reminder-app:latest
