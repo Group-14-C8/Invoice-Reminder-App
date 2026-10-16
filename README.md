@@ -14,13 +14,13 @@ Freelancers and SMEs often send invoices by email, WhatsApp, or PDF, then lose t
 
 ### What It Does
 
-Creates invoices quickly with line items and client details
+- Creates invoices quickly with line items and client details
 
-Tracks status — Draft, Sent, Paid, or Overdue
+- ***Tracks status*** — Draft, Sent, Paid, or Overdue
 
-Reminds clients automatically via email when payment is due or late
+- Reminds clients automatically via email when payment is due or late
 
-Shows dashboards — users see their unpaid/paid totals and overdue invoices; admins see system-wide activity
+- ***Shows dashboards*** — users see their unpaid/paid totals and overdue invoices; admins see system-wide activity
 
 ### Who Uses It
 
@@ -48,6 +48,12 @@ Shows dashboards — users see their unpaid/paid totals and overdue invoices; ad
 - Automatic deployment via GitHub Actions on every push
 
 ## Architecture
+
+It is a containerized full-stack web application built with ASP.NET Core 8, Entity Framework Core, React, and SQLite. It is packaged as a single Docker image containing both the API and the frontend, served together on port 8080.
+
+GitHub Actions handles the CI/CD pipeline. On every push, it builds the image, pushes it to Docker Hub with two tags (:latest and the commit SHA), then deploys based on the branch. Pushes to deployment-branch deploy to a self-managed Ubuntu server on AWS EC2, which serves as the staging environment — access is restricted to developer IPs via the Security Group. Pushes to main deploy to Azure App Service, the production environment, where users access the app over auto-provisioned HTTPS.
+
+Both targets run the same image but maintain independent SQLite databases, keeping staging and production isolated while demonstrating the portability of containerization across cloud providers.
 
 ![Architecture Diagram](./full_archi.png)
 
@@ -95,21 +101,44 @@ Environment variables are runtime configuration values injected into the contain
 
 ## CI/CD workflow
 
-### The CI/CD pipeline is implemented with GitHub Actions in .github/workflows/CICD.yaml. It triggers automatically on every push to the main. The workflow runs five steps on a fresh Ubuntu runner:
+The CI/CD pipeline is implemented with GitHub Actions in .github/workflows/CICD.yaml. It triggers automatically on every push to main and deployment-branch, but routes each branch to a different deployment target. The workflow runs on a fresh Ubuntu runner and shares the same build step for both branches, then uses branch-specific conditions to decide which deploy step executes.
 
-1. **Checkout**: pulls the repo onto the runner
+### Shared steps (both branches)
 
-2. **Docker Hub login**: authenticates using GitHub Secrets
+1. ***Checkout*** — pulls the repository onto the runner
 
-3. **Build and push**: builds the multi-stage Docker image and pushes it to Docker Hub with two tags (latest and the commit SHA)
+2. ***Docker Hub login*** — authenticates using GitHub Secrets (DOCKER_USERNAME, DOCKERHUB_TOKEN)
 
-4. **SSH deploy** — enabled; logs into the Ubuntu server on AWS EC2 and pulls the latest image
+3. ***Build and push*** — builds the multi-stage Docker image and pushes it to Docker Hub with two tags: :latest and :<commit-sha>
 
-5. **Azure deploy**: tells Azure App Service to pull the newly built image and restart
+### Branch-specific deploy steps
+
+4. **SSH deploy** — runs only on deployment-branch (if: github.ref == 'refs/heads/deployment-branch'). Logs into the Ubuntu server on AWS EC2 using an SSH key and pulls the latest image. The EC2 instance acts as a staging environment — access to port 8080 is restricted at the Security Group level to the developers' public IPs only, so it is not reachable by end users.
+
+5. **Azure deploy** — runs only on main (if: github.ref == 'refs/heads/main'). Instructs Azure App Service to pull the image tagged with the commit SHA and restart. Azure is the production environment — it is the only URL that end users access, served over auto-provisioned HTTPS.
+
+### Branch-to-target mapping
+
+| Branch | Build & push | SSH deploy (EC2) | Azure deploy |
+|--------|:------------:|:----------------:|:------------:|
+| `deployment-branch` | ✅ | ✅ (staging) | ⏭ skipped |
+| `main` | ✅ | ⏭ skipped | ✅ (production) |
+
+
+### Why this design?
+
+- ***deployment-branch*** acts as the staging channel — every push validates the build and ships it to the EC2 instance for smoke testing, without exposing anything to real users.
+
+- ***main*** is the protected production channel — changes reach it only through pull requests, and each merge deploys straight to Azure.
+
+- One image, two environments — the exact same container is deployed to both targets, ensuring that what passes staging is what ships to production.
+
 
 The SHA tag is used for the Azure deployment to force Azure to pull a fresh image on every run, avoiding stale-cache issues with the latest tag. This setup achieves full automation: a single git push builds, ships, and deploys the application with no manual steps.
 
 ![CICD Diagram](./cicd.png)
+
+Both environments are provisioned from the same Docker image via the same GitHub Actions workflow, but they are triggered by different branches: deployment-branch deploys to the EC2 staging server for validation, while main deploys to Azure for production. This gives the team a safe place to test changes before they reach real users, while also demonstrating that the containerized application is portable and not tied to any single cloud provider.
 
 
 ## Deployment (Azure App Service + Ubuntu Server on AWS EC2)
@@ -122,22 +151,29 @@ The application is deployed to Azure App Service using the Docker Container publ
 
 **Regarding staging slots**: Azure App Service supports deployment slots for zero-downtime (blue-green) deployments — new versions can be deployed to a staging slot, tested, and then swapped into production instantly. However, slots require a Standard S1 or higher App Service Plan. This project uses the Free F1 tier for cost reasons, which does not support slots. As a result, deployments currently target the production slot directly, causing a brief restart during each release. For a production-grade setup, upgrading the tier and adding a slot-name: staging parameter to the webapps-deploy step would enable safe, zero-downtime releases.
 
-### Ubuntu Server on AWS EC2
+### Ubuntu Server on AWS EC2 (Staging)
 
-In addition to Azure, the same Docker image is deployed to a self-managed Ubuntu server running on an AWS EC2 instance. Deployment is handled by the same GitHub Actions workflow using appleboy/ssh-action. The workflow authenticates to the EC2 instance using an SSH key pair (key.pem) stored as a GitHub Secret. Once connected, the workflow runs a script that pulls the latest image from Docker Hub, stops and removes any previous container, starts a fresh container bound to port 8080 with --restart always, and prunes unused images. The application is accessible at http://54.167.46.5:8080/.
+The same Docker image is also deployed to a self-managed Ubuntu server running on an AWS EC2 instance, which serves as the staging and testing environment. Deployment is handled by the same GitHub Actions workflow using appleboy/ssh-action, triggered only on pushes to deployment-branch. The workflow authenticates to the EC2 instance using an SSH key pair stored as a GitHub Secret. Once connected, it pulls the latest image from Docker Hub, stops and removes any previous container, starts a fresh one bound to port 8080 with --restart always, and prunes unused images.
 
-**Key characteristics**: port 8080 must be opened in the EC2 Security Group; the EC2 instance must have Docker installed and the SSH user must be a member of the docker group; and because both targets run independently, each maintains its own SQLite database — data is not shared between Azure and the EC2 instance. Unlike Azure, HTTPS is not provisioned automatically and would require a reverse proxy (e.g., Nginx + Let's Encrypt) for production use. The --restart always flag ensures the container restarts automatically on crash or EC2 reboot, providing resilience without external orchestration.
+***Access is restricted to developers only***. The EC2 Security Group allows inbound traffic on port 8080 (http://54.167.46.5:8080/) exclusively from the developers' public IPs, so the staging environment is not reachable by end users. This provides a real, containerized environment for testing new builds before they are promoted to production.
+
+***Key characteristics***: Docker must be installed on the instance and the SSH user must be a member of the docker group; HTTPS is not provisioned automatically and is not required since access is IP-restricted; the --restart always flag ensures the container restarts automatically on crash or EC2 reboot; and each environment maintains its own SQLite database — data is not shared between EC2 and Azure.
 
 ### Summary
 
-Aspect	Azure App Service	Ubuntu Server (AWS EC2)
-Host type	Managed PaaS	Self-managed VM (IaaS)
-Deploy method	azure/webapps-deploy	appleboy/ssh-action
-Auth	Publish Profile (XML)	SSH key (key.pem)
-Image tag pulled	:<commit-sha>	:latest
-HTTPS	Auto-provisioned	Not configured
-Database	SQLite (per instance)	SQLite (per instance)
-Both deployments are triggered by the same GitHub Actions workflow on every push to the deployment branch, ensuring version consistency across targets. The dual-target setup also provides a working demonstration that the application is not tied to any single cloud provider — a core benefit of containerization.
+| Aspect | Azure App Service | Ubuntu Server (AWS EC2) |
+|--------|-------------------|--------------------------|
+| **Role** | Production | Staging / testing |
+| **Host type** | Managed PaaS | Self-managed VM (IaaS) |
+| **Deploy trigger** | Push to `main` | Push to `deployment-branch` |
+| **Deploy method** | `azure/webapps-deploy` | `appleboy/ssh-action` |
+| **Auth** | Publish Profile (XML) | SSH key (`key.pem`) |
+| **Image tag pulled** | `:<commit-sha>` | `:latest` |
+| **Access** | Public — any user | Restricted — developer IPs only |
+| **HTTPS** | Auto-provisioned | Not configured (not needed) |
+| **Database** | SQLite (per instance) | SQLite (per instance) |
+
+
 
 ## Health check and monitoring
 
