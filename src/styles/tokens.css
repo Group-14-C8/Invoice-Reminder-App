@@ -1,0 +1,17 @@
+@theme {
+  --color-chalk: #f4f4f1;
+  --color-paper: #ffffff;
+  --color-line: #e4e4e0;
+  --color-line-strong: #cfcfca;
+  --color-ink: #111418;
+  --color-slate: #6b6f76;
+  --color-mist: #a0a3a8;
+  --color-ink-soft: #2b3037;
+  --color-ink-wash: #ecece8;
+  --color-fern: #1f7a4d;
+  --color-fern-wash: #e5f1ea;
+  --color-amber: #98590a;
+  --color-amber-wash: #faefd8;
+  --color-brick: #b8341c;
+  --color-brick-wash: #fae6e1;
+}

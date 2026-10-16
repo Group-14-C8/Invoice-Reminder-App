@@ -1,0 +1,16 @@
+import { forwardRef, type InputHTMLAttributes } from "react";
+
+export type InputProps = InputHTMLAttributes<HTMLInputElement>;
+
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { className = "", ...props },
+  ref,
+) {
+  return (
+    <input
+      {...props}
+      ref={ref}
+      className={["ui-input", className].filter(Boolean).join(" ")}
+    />
+  );
+});
