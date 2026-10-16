@@ -5,11 +5,63 @@ status, and send automatic payment reminders. Includes an admin dashboard showin
 overdue totals.
 
 ## Overview
+
+Invoice Reminder App is a full-stack web application that helps freelancers and small businesses create invoices, track payments, and automatically remind clients when payment is due or overdue.
+
+### The Problem
+
+Freelancers and SMEs often send invoices by email, WhatsApp, or PDF, then lose track of who has paid. Chasing late payers is awkward and easy to forget, and the cashflow picture ends up in someone's head or a messy spreadsheet.
+
+### What It Does
+
+Creates invoices quickly with line items and client details
+
+Tracks status — Draft, Sent, Paid, or Overdue
+
+Reminds clients automatically via email when payment is due or late
+
+Shows dashboards — users see their unpaid/paid totals and overdue invoices; admins see system-wide activity
+
+### Who Uses It
+
+**User (freelancer/SME owner)***: 	Registers, adds clients, creates invoices, marks them paid, tracks what they're owed
+***Admin (platform owner)***: Views system-wide totals, overdue amounts, and activity across all users
+
+### Core Features
+
+- JWT authentication (register, login, logout)
+
+- Client and invoice CRUD with line items
+
+- Status tracking: Draft, Sent, Paid, Overdue
+
+- Mark-as-paid action that stops reminders
+
+- User dashboard (unpaid, paid, overdue)
+
+- Admin dashboard (system-wide totals)
+
+- Automatic email reminders with deduplication via ReminderLog
+
+- /health endpoint for monitoring
+
+- Automatic deployment via GitHub Actions on every push
+
 ## Architecture
 
 ![Architecture Diagram](./full_archi.png)
 
 ## Tech stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Backend** | ASP.NET Core 8 | REST API, authentication, background worker |
+| **ORM** | Entity Framework Core | Database access and schema management |
+| **Database** | SQLite | Embedded, file-based relational database |
+| **Frontend** | React + Vite | Single-page application with fast dev builds |
+| **Testing** | xUnit | Unit and integration tests for the API |
+| **CI/CD** | GitHub Actions | Automated build, test, and deployment pipeline |
+| **Hosting** | Azure App Service + AWS EC2 | Two independent deployment targets |
 
 ## Run locally
 
@@ -88,4 +140,26 @@ Database	SQLite (per instance)	SQLite (per instance)
 Both deployments are triggered by the same GitHub Actions workflow on every push to the deployment branch, ensuring version consistency across targets. The dual-target setup also provides a working demonstration that the application is not tied to any single cloud provider — a core benefit of containerization.
 
 ## Health check and monitoring
+
+The following mechanisms are used to monitor the application across its two deployment targets:
+
+- **`/health` endpoint** — ASP.NET Core's built-in health check, registered via `AddHealthChecks().AddDbContextCheck<AppDbContext>()`. It verifies the API is running and that the database is reachable. Available at `/health` on both Azure and the EC2 instance.
+- **Application logs** — captured via the standard ASP.NET Core logging pipeline. Locally, logs stream to the terminal with `docker logs -f invoice-reminder`. On Azure, they are viewable in **Log Stream** under the Web App's Monitoring section. On EC2, they are accessed via `docker logs invoice-reminder` over SSH.
+- **Server and container health monitoring** — the container runs with `--restart always`, ensuring automatic recovery from crashes or host reboots. Azure App Service provides built-in health monitoring, automatic restarts, and metrics for CPU, memory, and request counts via the Azure Portal.
+
 ## Troubleshooting
+
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| `no such table: Invoices` | Schema not created on startup | Add `db.Database.EnsureCreated();` in `Program.cs`, delete old volume with `docker volume rm invoice-data` |
+| `IDX10703: key length is zero` | Empty `Jwt:Key` in `appsettings.json` | Set a 32+ character key, or pass `Jwt__Key` as an environment variable |
+| `SqlException: server was not found` | Connection string points to Windows SQL Server | Switch to SQLite: `Data Source=/app/data/invoiceapp.db` and use `UseSqlite` |
+| Frontend 404 at `/` | Static files not served | Add `app.UseDefaultFiles(); app.UseStaticFiles(); app.MapFallbackToFile("index.html");` |
+| Docker build: `csproj not found` | Wrong path in Dockerfile | Verify paths with `find . -name "*.csproj"` and fix `COPY` lines |
+| `Publish profile is invalid` | `app-name` mismatch or stale secret | Match `app-name` to Azure Web App name, re-download publish profile |
+| Azure returns 502/503 | Wrong port | Set `WEBSITES_PORT=8080` in App Settings |
+| `git push` to main rejected | Branch protection | Open a PR, or add yourself to the ruleset bypass list |
+| SSH deploy: `Permission denied` | Key mismatch or wrong user | Verify `key.pem` works locally, confirm `SERVER_SSH_KEY` matches, check Security Group |
+| `docker: not found` on EC2 | Docker not installed or no permissions | `sudo apt install docker.io && sudo usermod -aG docker $USER`, then reconnect |
+| 30–60s first load on Azure | Free F1 cold start | Expected; upgrade to B1 tier with **Always On** to avoid |
