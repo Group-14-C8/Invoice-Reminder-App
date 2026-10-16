@@ -2,7 +2,7 @@ name: Build and Deploy Invoice Reminder App
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "deplyoment-branch" ]
 
 jobs:
   build-and-push:
